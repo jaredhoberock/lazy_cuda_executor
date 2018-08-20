@@ -39,6 +39,20 @@ struct __invoke_and_set_value
 };
 
 
+template<class Sender, class Receiver>
+struct __submit_receiver
+{
+  __host__ __device__
+  void operator()()
+  {
+    sender_.submit(receiver_);
+  }
+
+  Sender sender_;
+  Receiver receiver_;
+};
+
+
 class lazy_cuda_executor
 {
   public:
@@ -47,9 +61,10 @@ class lazy_cuda_executor
     {
       public:
         template<class S, class F>
-        value_task(S&& sender, F&& f)
+        value_task(S&& sender, F&& f, const eager_cuda_executor& executor)
           : sender_(std::forward<S>(sender)),
-            f_(std::forward<F>(f))
+            f_(std::forward<F>(f)),
+            executor_(executor)
         {}
 
         template<class SingleReceiver>
@@ -58,11 +73,15 @@ class lazy_cuda_executor
           // wrap up f_ to send its result to sr
           __invoke_and_set_value<Function, SingleReceiver> wrapped_receiver{f_, sr};
 
-          executor_.execute([=] __host__ __device__
-          {
-            // submit the wrapped receiver to the sender
-            sender_.submit(wrapped_receiver);
-          });
+          // XXX workaround nvbug 2338736
+          //executor_.execute([=] __host__ __device__
+          //{
+          //  // submit the wrapped receiver to the sender
+          //  sender_.submit(wrapped_receiver);
+          //});
+
+          __submit_receiver<Sender,decltype(wrapped_receiver)> workaround{sender_, wrapped_receiver};
+          executor_.execute(workaround);
         }
 
       private:
@@ -75,7 +94,7 @@ class lazy_cuda_executor
     value_task<std::decay_t<S>, std::decay_t<F>>
       make_value_task(S&& sender, F&& f) const
     {
-      return {std::forward<S>(sender), std::forward<F>(f)};
+      return {std::forward<S>(sender), std::forward<F>(f), executor_};
     }
 
   private:
