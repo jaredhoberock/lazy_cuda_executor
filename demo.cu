@@ -16,6 +16,21 @@ struct none_sender
 };
 
 
+// this thing is like a future<T>
+template<class T>
+struct just
+{
+  template<class SingleReceiver>
+  __host__ __device__
+  void submit(SingleReceiver sr)
+  {
+    sr.set_value(value_);
+  }
+
+  T value_;
+};
+
+
 // this thing is like like a promise
 struct sink_receiver
 {
@@ -27,22 +42,44 @@ struct sink_receiver
 
 int main()
 {
-  eager_cuda_executor eager_ex;
-
-  eager_ex.execute([] __host__ __device__ ()
+  // test eager one-way execution
   {
-    printf("Hello, world from eager task!\n");
-  });
+    eager_cuda_executor eager;
 
-  lazy_cuda_executor lazy_ex;
+    eager.execute([] __host__ __device__ ()
+    {
+      printf("Hello, world from eager task!\n");
+    });
 
-  lazy_ex.make_value_task(none_sender(), [] __host__ __device__ ()
+    // wait for everything
+    cudaDeviceSynchronize();
+  }
+
+  // test lazy void -> void execution
   {
-    printf("Hello, world from lazy task!\n");
-  }).submit(sink_receiver());
+    lazy_cuda_executor lazy;
+  
+    lazy.make_value_task(none_sender(), [] __host__ __device__ ()
+    {
+      printf("Hello, world from lazy task!\n");
+    }).submit(sink_receiver());
+  
+    // wait for everything
+    cudaDeviceSynchronize();
+  }
 
-  // wait for everything
-  cudaDeviceSynchronize();
+  // test lazy int -> void execution
+  {
+    lazy_cuda_executor lazy;
+
+    lazy.make_value_task(just<int>{13}, [] __host__ __device__ (int value)
+    {
+      printf("Received %d in lazy task.\n", (int)value);
+    }).submit(sink_receiver());
+
+    // wait for everything
+    cudaDeviceSynchronize();
+  }
 
   std::cout << "OK" << std::endl;
 
