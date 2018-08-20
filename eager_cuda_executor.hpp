@@ -16,7 +16,7 @@ class eager_cuda_executor
 {
   public:
     eager_cuda_executor()
-      : s_(make_cuda_stream())
+      : stream_(make_cuda_stream())
     {}
 
     eager_cuda_executor(const eager_cuda_executor&)
@@ -25,7 +25,7 @@ class eager_cuda_executor
 
     ~eager_cuda_executor()
     {
-      destroy_cuda_stream(s_);
+      destroy_cuda_stream(stream_);
     }
     
     template<class Function>
@@ -35,7 +35,7 @@ class eager_cuda_executor
       auto g = std::forward<Function>(f);
 
       // launch the kernel
-      kernel<<<1,1,0,s_>>>(g);
+      kernel<<<1,1,0,stream_>>>(g);
     }
 
     bool operator==(const eager_cuda_executor&) const { return true; }
@@ -53,15 +53,15 @@ class eager_cuda_executor
       return result;
     }
 
-    static void destroy_cuda_stream(cudaStream_t s)
+    static void destroy_cuda_stream(cudaStream_t stream)
     {
-      if(auto error = cudaStreamDestroy(s))
+      if(auto error = cudaStreamDestroy(stream))
       {
         std::cerr << "eager_cuda_executor::destroy_cuda_stream(): CUDA error after cudaStreamDestroy(): " << cudaGetErrorString(error) << std::endl;
         std::terminate();
       }
     }
 
-    cudaStream_t s_;
+    cudaStream_t stream_;
 };
 
