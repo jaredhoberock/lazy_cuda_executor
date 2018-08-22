@@ -41,6 +41,11 @@ class eager_cuda_executor
     bool operator==(const eager_cuda_executor&) const { return true; }
     bool operator!=(const eager_cuda_executor& other) const { return !(*this == other); }
 
+    cudaStream_t stream() const
+    {
+      return stream_;
+    }
+
   private:
     static cudaStream_t make_cuda_stream()
     {
