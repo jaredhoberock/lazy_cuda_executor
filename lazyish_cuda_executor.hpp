@@ -124,7 +124,7 @@ class lazyish_cuda_executor
           // record a new event on executor_'s stream
           if(auto error = cudaEventRecord(event_, executor_.stream()))
           {
-            throw std::runtime_error("lazyish_cuda_executor::value_task::submit(): CUDA error after cudaStreamWaitEvent(): " + std::string(cudaGetErrorString(error)));
+            throw std::runtime_error("lazyish_cuda_executor::value_task::submit(): CUDA error after cudaEventRecord(): " + std::string(cudaGetErrorString(error)));
           }
         }
 
