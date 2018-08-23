@@ -3,8 +3,6 @@
 #include "value_propagating_cuda_executor.hpp"
 #include <iostream>
 
-
-// this thing is like a ready future of T
 template<class T>
 struct just
 {
@@ -23,8 +21,6 @@ struct just
   T value_;
 };
 
-
-// this thing is like a promise
 struct printf_receiver
 {
   __host__ __device__
@@ -34,31 +30,35 @@ struct printf_receiver
   }
 };
 
+void do_some_work()
+{
+  printf("Doing some work\n");
+}
 
 int main()
 {
-  // test int -> int execution
+  value_propagating_cuda_executor ex;
+  
+  auto task_a = ex.make_value_task(just<int>{13}, [] __host__ __device__ (int val)
   {
-    value_propagating_cuda_executor ex;
-  
-    auto task_a = ex.make_value_task(just<int>{13}, [] __host__ __device__ (int val)
-    {
-      printf("Received %d in task a\n", val);
-      return val + 1;
-    });
+    printf("Received %d in task a\n", val);
+    return val + 1;
+  });
 
-    auto task_b = ex.make_value_task(task_a, [] __host__ __device__ (int val)
-    {
-      printf("Received %d in task b\n", val);
-      return val + 1;
-    });
-    
-    // submit task b into a print function
-    task_b.submit(printf_receiver());
+  auto task_b = ex.make_value_task(task_a, [] __host__ __device__ (int val)
+  {
+    printf("Received %d in task b\n", val);
+    return val + 1;
+  });
   
-    // wait for task_b
-    cudaEventSynchronize(task_b.event());
-  }
+  // submit task b into a print function
+  task_b.submit(printf_receiver());
+
+  // do some work on the current thread
+  do_some_work();
+  
+  // wait for task_b
+  cudaEventSynchronize(task_b.event());
 
   std::cout << "OK" << std::endl;
 
