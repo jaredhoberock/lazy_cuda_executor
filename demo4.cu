@@ -37,8 +37,8 @@ void do_some_work()
 
 int main()
 {
-  value_propagating_cuda_executor ex;
-  
+  cuda_executor_with_values ex;
+
   auto task_a = ex.make_value_task(just<int>{13}, [] __host__ __device__ (int val)
   {
     printf("Received %d in task a\n", val);
@@ -50,13 +50,13 @@ int main()
     printf("Received %d in task b\n", val);
     return val + 1;
   });
-  
+
   // submit task b into a print function
   task_b.submit(printf_receiver());
 
   // do some work on the current thread
   do_some_work();
-  
+
   // wait for task_b
   cudaEventSynchronize(task_b.event());
 
@@ -64,4 +64,3 @@ int main()
 
   return 0;
 }
-

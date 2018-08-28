@@ -27,7 +27,7 @@ class eager_cuda_executor
     {
       destroy_cuda_stream(stream_);
     }
-    
+
     template<class Function>
     void execute(Function&& f) const
     {
@@ -69,4 +69,3 @@ class eager_cuda_executor
 
     cudaStream_t stream_;
 };
-

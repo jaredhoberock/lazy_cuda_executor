@@ -1,5 +1,11 @@
 #pragma once
 
+template<class T>
+using decay_t = typename std::decay<T>::type;
+
+template<class T>
+using result_of_t = typename std::result_of<T>::type;
+
 #include "eager_cuda_executor.hpp"
 
 #define __REQUIRES(...) typename std::enable_if<(__VA_ARGS__)>::type* = nullptr
@@ -101,7 +107,7 @@ class cuda_executor_with_values
           auto f_copy = std::forward<F>(f);
 
           // launch f_copy on executor_
-          detail::invoke_and_placement_new_result<std::decay_t<F>, Arg, T> execute_me{std::forward<F>(f), argument_ptr, result_ptr_};
+          detail::invoke_and_placement_new_result<decay_t<F>, Arg, T> execute_me{std::forward<F>(f), argument_ptr, result_ptr_};
           executor_.execute(execute_me);
 
           // record a new event on executor_'s stream
@@ -118,7 +124,7 @@ class cuda_executor_with_values
                  __REQUIRES(
                    !std::is_same<
                      value_task,
-                     std::decay_t<S>
+                     decay_t<S>
                    >::value
                  )>
         value_task(S&& sender, F&& f, const eager_cuda_executor& executor)
@@ -127,11 +133,11 @@ class cuda_executor_with_values
             result_ptr_(allocate_result())
         {
           // turn f into a receiver
-          detail::function_receiver<std::decay_t<F>, T> f_receiver{std::forward<F>(f), result_ptr_};
+          detail::function_receiver<decay_t<F>, T> f_receiver{std::forward<F>(f), result_ptr_};
 
           // create a function object that submits f_receiver to sender
-          detail::submit_receiver<std::decay_t<S>, decltype(f_receiver)> execute_me{std::forward<S>(sender), std::move(f_receiver)};
-          
+          detail::submit_receiver<decay_t<S>, decltype(f_receiver)> execute_me{std::forward<S>(sender), std::move(f_receiver)};
+
           // execute on the executor
           executor_.execute(std::move(execute_me));
 
@@ -174,7 +180,7 @@ class cuda_executor_with_values
         {
           return event_;
         }
-       
+
       private:
         static cudaEvent_t make_cuda_event()
         {
@@ -214,8 +220,8 @@ class cuda_executor_with_values
 
     template<class SingleSender, class F>
     value_task<
-      std::result_of_t<
-        F(detail::sender_result_t<std::decay_t<SingleSender>>)
+      result_of_t<
+        F(detail::sender_result_t<decay_t<SingleSender>>)
       >
     >
       make_value_task(SingleSender&& ns, F&& f) const
@@ -226,5 +232,3 @@ class cuda_executor_with_values
   private:
     eager_cuda_executor executor_;
 };
-
-
